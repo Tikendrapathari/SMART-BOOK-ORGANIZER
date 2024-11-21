@@ -1,0 +1,214 @@
+# SMART-BOOK-ORGANIZER
+import tkinter as tk
+from tkinter import ttk, messagebox, filedialog
+import sqlite3
+import csv
+import matplotlib.pyplot as plt
+
+# Initialize Database
+def init_db():
+    conn = sqlite3.connect('books.db')
+    cursor = conn.cursor()
+    cursor.execute('''CREATE TABLE IF NOT EXISTS books (
+                        id INTEGER PRIMARY KEY,
+                        title TEXT NOT NULL,
+                        author TEXT NOT NULL,
+                        genre TEXT NOT NULL,
+                        year INTEGER NOT NULL)''')
+    conn.commit()
+    conn.close()
+
+# Add Book to Database
+def add_book(title, author, genre, year):
+    try:
+        conn = sqlite3.connect('books.db')
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO books (title, author, genre, year) VALUES (?, ?, ?, ?)",
+                       (title, author, genre, year))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to add book: {e}")
+
+# Fetch All Books
+def fetch_books():
+    try:
+        conn = sqlite3.connect('books.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM books")
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to fetch books: {e}")
+        return []
+
+# Search Books
+def search_books(keyword):
+    try:
+        conn = sqlite3.connect('books.db')
+        cursor = conn.cursor()
+        query = f"SELECT * FROM books WHERE title LIKE ? OR author LIKE ? OR genre LIKE ?"
+        cursor.execute(query, (f"%{keyword}%", f"%{keyword}%", f"%{keyword}%"))
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
+    except Exception as e:
+        messagebox.showerror("Error", f"Search failed: {e}")
+        return []
+
+# Delete Book by ID
+def delete_book(book_id):
+    try:
+        conn = sqlite3.connect('books.db')
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM books WHERE id=?", (book_id,))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to delete book: {e}")
+
+# Export to CSV
+def export_to_csv():
+    try:
+        filepath = filedialog.asksaveasfilename(defaultextension=".csv", 
+                                                filetypes=[("CSV files", "*.csv")])
+        if filepath:
+            books = fetch_books()
+            with open(filepath, 'w', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow(["ID", "Title", "Author", "Genre", "Year"])
+                writer.writerows(books)
+            messagebox.showinfo("Success", "Data exported successfully!")
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to export data: {e}")
+
+# Visualize Data
+def visualize_data():
+    try:
+        conn = sqlite3.connect('books.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT genre, COUNT(*) FROM books GROUP BY genre")
+        data = cursor.fetchall()
+        conn.close()
+
+        genres = [row[0] for row in data]
+        counts = [row[1] for row in data]
+
+        if genres and counts:
+            plt.figure(figsize=(8, 6))
+            plt.bar(genres, counts, color="skyblue")
+            plt.title("Books by Genre")
+            plt.xlabel("Genre")
+            plt.ylabel("Count")
+            plt.xticks(rotation=45)
+            plt.tight_layout()
+            plt.show()
+        else:
+            messagebox.showinfo("Info", "No data available for visualization.")
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to visualize data: {e}")
+
+# GUI
+def main():
+    def save_book():
+        title = title_entry.get()
+        author = author_entry.get()
+        genre = genre_entry.get()
+        year = year_entry.get()
+        
+        if not (title and author and genre and year.isdigit()):
+            messagebox.showerror("Error", "Please provide valid inputs.")
+            return
+        
+        add_book(title, author, genre, int(year))
+        title_entry.delete(0, tk.END)
+        author_entry.delete(0, tk.END)
+        genre_entry.delete(0, tk.END)
+        year_entry.delete(0, tk.END)
+        populate_table()
+        status_label.config(text="Book added successfully!")
+
+    def populate_table(data=None):
+        for i in tree.get_children():
+            tree.delete(i)
+        rows = data if data else fetch_books()
+        for row in rows:
+            tree.insert('', tk.END, values=row)
+        status_label.config(text="Table populated!")
+
+    def delete_selected_book():
+        selected_item = tree.selection()
+        if not selected_item:
+            messagebox.showerror("Error", "Please select a book to delete.")
+            return
+        
+        book_id = tree.item(selected_item[0], 'values')[0]
+        delete_book(book_id)
+        populate_table()
+        status_label.config(text="Book deleted successfully!")
+
+    def search():
+        keyword = search_entry.get()
+        if keyword:
+            result = search_books(keyword)
+            populate_table(result)
+        else:
+            populate_table()
+        status_label.config(text="Search completed!")
+
+    root = tk.Tk()
+    root.title("Smart Book Organizer")
+    root.geometry("800x600")
+
+    input_frame = tk.Frame(root)
+    input_frame.pack(pady=10)
+
+    tk.Label(input_frame, text="Title:").grid(row=0, column=0)
+    tk.Label(input_frame, text="Author:").grid(row=1, column=0)
+    tk.Label(input_frame, text="Genre:").grid(row=2, column=0)
+    tk.Label(input_frame, text="Year:").grid(row=3, column=0)
+
+    title_entry = ttk.Entry(input_frame)
+    author_entry = ttk.Entry(input_frame)
+    genre_entry = ttk.Entry(input_frame)
+    year_entry = ttk.Entry(input_frame)
+
+    title_entry.grid(row=0, column=1)
+    author_entry.grid(row=1, column=1)
+    genre_entry.grid(row=2, column=1)
+    year_entry.grid(row=3, column=1)
+
+    ttk.Button(input_frame, text="Add Book", command=save_book).grid(row=4, column=1, pady=5)
+
+    search_frame = tk.Frame(root)
+    search_frame.pack(pady=10)
+    tk.Label(search_frame, text="Search:").pack(side=tk.LEFT, padx=5)
+    search_entry = ttk.Entry(search_frame)
+    search_entry.pack(side=tk.LEFT, padx=5)
+    ttk.Button(search_frame, text="Search", command=search).pack(side=tk.LEFT, padx=5)
+    ttk.Button(search_frame, text="Clear", command=lambda: populate_table()).pack(side=tk.LEFT, padx=5)
+
+    tree = ttk.Treeview(root, columns=("ID", "Title", "Author", "Genre", "Year"), show="headings")
+    tree.pack(pady=10, fill=tk.X)
+
+    for col in tree["columns"]:
+        tree.heading(col, text=col)
+        tree.column(col, width=150)
+
+    action_frame = tk.Frame(root)
+    action_frame.pack(pady=10)
+    ttk.Button(action_frame, text="Delete Selected Book", command=delete_selected_book).pack(side=tk.LEFT, padx=10)
+    ttk.Button(action_frame, text="Export to CSV", command=export_to_csv).pack(side=tk.LEFT, padx=10)
+    ttk.Button(action_frame, text="Visualize Data", command=visualize_data).pack(side=tk.LEFT, padx=10)
+
+    status_label = tk.Label(root, text="")
+    status_label.pack(pady=5)
+
+    populate_table()
+
+    root.mainloop()
+
+if __name__ == "__main__":
+    init_db()
+    main()
