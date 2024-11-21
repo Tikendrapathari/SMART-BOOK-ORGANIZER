@@ -31,9 +31,13 @@ A clean and intuitive interface for inputting, viewing, and managing book data.
 TECHNOLOGY USED:
 
 Python: Core language for implementing the application.
+
 Tkinter: GUI framework for building the user interface.
+
 SQLite: Lightweight relational database for storing book records.
+
 CSV: Used for exporting book data.
+
 Matplotlib: Library for visualizing book data.
               
 
