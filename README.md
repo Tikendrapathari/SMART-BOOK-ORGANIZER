@@ -1,4 +1,5 @@
-Name- Tikendra Pathe 
+NAME- TIKENDRA PATHE 
+
 
 PROJECT- SMART BOOK ORGANIZER
 
